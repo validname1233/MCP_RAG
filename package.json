@@ -1,0 +1,10 @@
+{
+  "name": "mcp-rag",
+  "version": "0.1.0",
+  "description": "知识库端侧 MCP server（qq-bot 配套）",
+  "type": "module",
+  "private": true,
+  "scripts": {
+    "start": "node --env-file=.env src/index.ts"
+  }
+}
