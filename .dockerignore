@@ -1,0 +1,5 @@
+node_modules
+.git
+.env
+server.log
+server.pid

@@ -1,0 +1,8 @@
+services:
+  kb-mcp:
+    build: .
+    container_name: kb-mcp
+    ports:
+      - "3001:3001"   # 宿主机 3001 -> 容器 3001，Higress/外网都从宿主机 3001 进
+    env_file: .env     # KB_BEARER_KEY 运行时注入
+    restart: unless-stopped
