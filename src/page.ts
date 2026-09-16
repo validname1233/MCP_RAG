@@ -7,55 +7,120 @@ export function pageHtml(token: string): string {
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>知识库管理</title>
+<title>知识库</title>
 <style>
-  * { box-sizing: border-box; }
-  body { font-family: system-ui, -apple-system, sans-serif; background: #f6f7f9; margin: 0; padding: 16px; }
-  .wrap { max-width: 760px; margin: 0 auto; }
-  header { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-  h1 { font-size: 18px; margin: 0; flex: 1; }
-  .btn { border: 0; border-radius: 8px; padding: 8px 14px; font-size: 14px; cursor: pointer;
-         background: #4f6ef7; color: #fff; }
-  .btn.secondary { background: #e8eaf0; color: #333; }
-  .btn.danger { background: #e5484d; }
-  .btn:disabled { opacity: .5; cursor: default; }
-  #drop { border: 2px dashed #c6cbe0; border-radius: 12px; padding: 28px; text-align: center;
-          color: #7a8199; margin-bottom: 16px; background: #fff; transition: border-color .15s; }
-  #drop.over { border-color: #4f6ef7; color: #4f6ef7; }
-  table { width: 100%; border-collapse: collapse; background: #fff; border-radius: 12px;
-          overflow: hidden; box-shadow: 0 2px 12px rgba(0,0,0,.05); }
-  th, td { text-align: left; padding: 10px 12px; font-size: 14px; border-bottom: 1px solid #f0f1f5; }
-  th { color: #7a8199; font-weight: 500; font-size: 12px; }
-  td .name { font-weight: 600; word-break: break-all; }
-  td .sub { color: #9aa1b5; font-size: 12px; margin-top: 2px; }
-  .row-actions { white-space: nowrap; }
-  .row-actions a, .row-actions button { margin-right: 6px; }
-  #empty { text-align: center; color: #9aa1b5; padding: 40px 0; display: none; }
-  #toast { position: fixed; left: 50%; bottom: 24px; transform: translateX(-50%);
-           background: #222; color: #fff; padding: 10px 18px; border-radius: 8px;
-           font-size: 14px; opacity: 0; transition: opacity .2s; pointer-events: none; }
-  #toast.show { opacity: .92; }
+  :root {
+    --bg: #fafafa; --card: #ffffff; --ink: #1a1d26; --sub: #8a8f9e;
+    --line: #ececf1; --accent: #4f6ef7; --accent-soft: #eef1fe;
+    --danger: #e5484d; --radius: 14px;
+  }
+  * { box-sizing: border-box; margin: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "PingFang SC",
+                 "Hiragino Sans GB", "Microsoft YaHei", sans-serif;
+    background: var(--bg); color: var(--ink); min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 720px; margin: 0 auto; padding: 32px 20px 48px; }
+
+  header { display: flex; align-items: center; gap: 12px; margin-bottom: 24px; }
+  .logo {
+    width: 36px; height: 36px; border-radius: 10px; background: var(--accent-soft);
+    display: flex; align-items: center; justify-content: center; font-size: 18px;
+  }
+  h1 { font-size: 17px; font-weight: 600; letter-spacing: .2px; }
+  .spacer { flex: 1; }
+  .iconbtn {
+    border: 0; background: transparent; color: var(--sub); cursor: pointer;
+    width: 32px; height: 32px; border-radius: 8px; font-size: 15px;
+    display: flex; align-items: center; justify-content: center; transition: all .15s;
+  }
+  .iconbtn:hover { background: var(--line); color: var(--ink); }
+
+  #drop {
+    border: 1.5px dashed #d4d7e0; border-radius: var(--radius); padding: 34px 20px;
+    text-align: center; color: var(--sub); background: var(--card);
+    transition: all .15s; margin-bottom: 14px; font-size: 14px;
+  }
+  #drop.over { border-color: var(--accent); background: var(--accent-soft); color: var(--accent); }
+  #drop .btn { margin: 10px 0 6px; }
+  #drop small { display: block; font-size: 12px; opacity: .8; }
+
+  .btn {
+    border: 0; border-radius: 9px; padding: 9px 18px; font-size: 14px; cursor: pointer;
+    background: var(--accent); color: #fff; font-weight: 500; transition: opacity .15s;
+  }
+  .btn:hover { opacity: .88; }
+
+  .card {
+    background: var(--card); border-radius: var(--radius); overflow: hidden;
+    border: 1px solid var(--line);
+  }
+  table { width: 100%; border-collapse: collapse; }
+  th {
+    text-align: left; padding: 12px 16px; font-size: 12px; font-weight: 500;
+    color: var(--sub); border-bottom: 1px solid var(--line);
+    text-transform: uppercase; letter-spacing: .4px;
+  }
+  td { padding: 13px 16px; font-size: 14px; border-bottom: 1px solid var(--line); }
+  tr:last-child td { border-bottom: 0; }
+  tr.row:hover td { background: #f7f8fb; }
+  .name { font-weight: 500; word-break: break-all; line-height: 1.45; }
+  .size, .time { color: var(--sub); font-size: 13px; white-space: nowrap; }
+  .act { white-space: nowrap; text-align: right; }
+  .act a, .act button {
+    display: inline-flex; align-items: center; justify-content: center;
+    width: 30px; height: 30px; border-radius: 8px; font-size: 14px;
+    text-decoration: none; transition: all .15s; margin-left: 4px;
+  }
+  .act a { color: var(--sub); }
+  .act a:hover { background: var(--accent-soft); color: var(--accent); }
+  .act button { border: 0; background: transparent; color: var(--sub); cursor: pointer; }
+  .act button:hover { background: #fdeaea; color: var(--danger); }
+
+  #empty { text-align: center; color: var(--sub); padding: 48px 0 52px; font-size: 14px; }
+  #empty .big { font-size: 34px; margin-bottom: 12px; opacity: .5; }
+
+  #toast {
+    position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%) translateY(8px);
+    background: #26282f; color: #fff; padding: 10px 20px; border-radius: 10px;
+    font-size: 13.5px; opacity: 0; transition: all .25s; pointer-events: none;
+    box-shadow: 0 8px 24px rgba(0,0,0,.18); max-width: 86vw;
+  }
+  #toast.show { opacity: .96; transform: translateX(-50%) translateY(0); }
+
+  @media (max-width: 560px) {
+    .time-col { display: none; }
+    .wrap { padding: 20px 14px 40px; }
+  }
 </style>
 </head>
 <body>
 <div class="wrap">
   <header>
-    <h1>📚 知识库</h1>
-    <button class="btn secondary" onclick="location.reload()">刷新</button>
+    <div class="logo">📚</div>
+    <h1>知识库</h1>
+    <div class="spacer"></div>
+    <button class="iconbtn" title="刷新" onclick="refresh()">⟳</button>
   </header>
 
   <div id="drop">
-    拖拽文件到这里，或
-    <button class="btn" onclick="document.getElementById('file').click()">选择文件</button>
+    拖拽文件到此处，或
+    <br><button class="btn" onclick="document.getElementById('file').click()">选择文件</button>
+    <small>支持多选 · 单文件上限 200MB</small>
     <input type="file" id="file" multiple hidden>
-    <div style="font-size:12px;margin-top:8px">支持多选 · 单文件上限 200MB</div>
   </div>
 
-  <table id="tbl" style="display:none">
-    <thead><tr><th>文件名</th><th style="width:110px">大小</th><th style="width:150px">上传时间</th><th style="width:130px">操作</th></tr></thead>
-    <tbody id="rows"></tbody>
-  </table>
-  <div id="empty">还没有文档，上传第一个吧</div>
+  <div class="card">
+    <table style="display:none" id="tbl">
+      <thead><tr><th>文件</th><th style="width:90px">大小</th><th class="time-col" style="width:150px">上传时间</th><th style="width:86px"></th></tr></thead>
+      <tbody id="rows"></tbody>
+    </table>
+    <div id="empty">
+      <div class="big">🗂️</div>
+      还没有文档<br>上传的文件会出现在这里
+    </div>
+  </div>
 </div>
 <div id="toast"></div>
 
@@ -68,9 +133,10 @@ const H = { "Authorization": "Bearer " + TOKEN };
 function toast(msg, ok = true) {
   const t = document.getElementById("toast");
   t.textContent = msg;
-  t.style.background = ok ? "#222" : "#c02929";
+  t.style.background = ok ? "#26282f" : "#c02929";
   t.classList.add("show");
-  setTimeout(() => t.classList.remove("show"), 2400);
+  clearTimeout(t._h);
+  t._h = setTimeout(() => t.classList.remove("show"), 2400);
 }
 
 function fmtSize(n) {
@@ -81,7 +147,7 @@ function fmtSize(n) {
 
 async function refresh() {
   const r = await fetch(BASE + "/api/entries", { headers: H });
-  if (!r.ok) { toast("加载失败：" + r.status, false); return; }
+  if (!r.ok) { toast("加载失败，请刷新重试", false); return; }
   const { entries } = await r.json();
   const rows = document.getElementById("rows");
   const tbl = document.getElementById("tbl");
@@ -91,17 +157,16 @@ async function refresh() {
   empty.style.display = entries.length ? "none" : "";
   for (const e of entries) {
     const tr = document.createElement("tr");
-    const statusBadge = e.status === "ready" ? "" : ' <span style="color:#b8860b">(' + e.status + ')</span>';
+    tr.className = "row";
     tr.innerHTML =
-      '<td><div class="name"></div><div class="sub"></div></td>' +
-      '<td></td><td></td>' +
-      '<td class="row-actions"><a>下载</a><button class="danger" style="border:0;border-radius:6px;padding:4px 8px;cursor:pointer">删除</button></td>';
+      '<td><div class="name"></div></td>' +
+      '<td class="size"></td><td class="time time-col"></td>' +
+      '<td class="act"><a href="#" title="下载">⬇</a><button title="删除">✕</button></td>';
     tr.querySelector(".name").textContent = e.filename;
-    tr.querySelector(".name").innerHTML += statusBadge;
-    tr.querySelector(".sub").textContent = "#" + e.id;
     tr.cells[1].textContent = fmtSize(e.size);
     tr.cells[2].textContent = e.created_at;
-    tr.querySelector("a").href = BASE + "/files/" + e.id;
+    const a = tr.querySelector("a");
+    a.href = BASE + "/files/" + e.id;
     tr.querySelector("button").onclick = () => del(e.id, e.filename);
     rows.appendChild(tr);
   }
@@ -109,22 +174,23 @@ async function refresh() {
 
 async function upload(files) {
   if (!files.length) return;
+  let ok = 0;
   for (const f of files) {
     const fd = new FormData();
     fd.append("file", f);
     const r = await fetch(BASE + "/api/entries", { method: "POST", headers: H, body: fd });
-    if (!r.ok) {
+    if (r.ok) ok++;
+    else {
       const err = await r.json().catch(() => ({}));
-      toast("上传失败：" + (err.error || r.status), false);
-    } else {
-      toast("已上传：" + f.name);
+      toast("「" + f.name + "」上传失败：" + (err.error || r.status), false);
     }
   }
+  if (ok) toast("已上传 " + ok + " 个文件");
   refresh();
 }
 
 async function del(id, name) {
-  if (!confirm("删除「" + name + "」？不可恢复。")) return;
+  if (!confirm("删除「" + name + "」？此操作不可恢复。")) return;
   // 标准 DELETE 优先；网关不放行 DELETE 时回落到 POST 兼容端点（见 web.ts）
   let r = await fetch(BASE + "/api/entries/" + id, { method: "DELETE", headers: H });
   if (r.status === 404 || r.status === 405) {
