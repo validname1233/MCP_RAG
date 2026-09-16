@@ -168,8 +168,11 @@ export function buildWebHandler(pageHtml: (token: string) => string) {
       }
 
       // 删除：DELETE /g/<token>/api/entries/<id>
-      const delMatch = url.match(/\/api\/entries\/(\d+)$/);
-      if (method === "DELETE" && delMatch !== null) {
+      // 兼容绕行：POST .../entries/<id>/delete —— Higress 网关当前只转发 GET/POST，
+      // DELETE 方法在网关侧 404。前端先试 DELETE、失败回落此端点；网关放行后自动回归标准方法。
+      const delMatch = url.match(/\/api\/entries\/(\d+)(\/delete)?$/);
+      const isDelete = method === "DELETE" || (method === "POST" && delMatch?.[2] !== undefined);
+      if (isDelete && delMatch !== null) {
         const id = Number(delMatch[1]);
         const entry = entryById.get(id, scope) as { stored_path: string } | undefined;
         if (entry === undefined) {

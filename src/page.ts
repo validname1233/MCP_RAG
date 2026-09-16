@@ -125,7 +125,11 @@ async function upload(files) {
 
 async function del(id, name) {
   if (!confirm("删除「" + name + "」？不可恢复。")) return;
-  const r = await fetch(BASE + "/api/entries/" + id, { method: "DELETE", headers: H });
+  // 标准 DELETE 优先；网关不放行 DELETE 时回落到 POST 兼容端点（见 web.ts）
+  let r = await fetch(BASE + "/api/entries/" + id, { method: "DELETE", headers: H });
+  if (r.status === 404 || r.status === 405) {
+    r = await fetch(BASE + "/api/entries/" + id + "/delete", { method: "POST", headers: H });
+  }
   if (!r.ok) { toast("删除失败", false); return; }
   toast("已删除");
   refresh();
