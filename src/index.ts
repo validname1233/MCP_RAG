@@ -5,10 +5,10 @@
 
 import { createServer } from "node:http";
 import { env } from "node:process";
-import { buildMcpServer, handleMcpRequest } from "./mcp.js";
-import { buildWebHandler } from "./web.js";
-import { pageHtml } from "./page.js";
-import "./db.js";
+import { buildMcpServer, handleMcpRequest } from "./mcp.ts";
+import { buildWebHandler } from "./web.ts";
+import { pageHtml } from "./page.ts";
+import "./db.ts";
 
 const PORT = Number(env.KB_PORT ?? 3001);
 const BEARER_KEY = env.KB_BEARER_KEY ?? "";

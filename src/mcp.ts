@@ -5,7 +5,7 @@ import { randomBytes } from "node:crypto";
 import { z } from "zod";
 import { McpServer } from "@modelcontextprotocol/sdk/server/mcp.js";
 import { StreamableHTTPServerTransport } from "@modelcontextprotocol/sdk/server/streamableHttp.js";
-import { insertToken, tokenByScope } from "./db.js";
+import { insertToken, tokenByScope } from "./db.ts";
 
 export function buildMcpServer(publicUrl: string): McpServer {
   const mcp = new McpServer({ name: "kb", version: "0.1.0" });

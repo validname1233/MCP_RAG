@@ -9,7 +9,7 @@ import { createReadStream, existsSync, statSync } from "node:fs";
 import { mkdir, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
-import { scopeByToken, entriesByScope, insertEntry, entryById, deleteEntry, entryDir } from "./db.js";
+import { scopeByToken, entriesByScope, insertEntry, entryById, deleteEntry, entryDir } from "./db.ts";
 
 // 单文件上限（字节）。家用文档场景 200MB 足够，防误传超大文件占满盘。
 const MAX_SIZE = 200 * 1024 * 1024;
@@ -191,7 +191,7 @@ export function buildWebHandler(pageHtml: (token: string) => string) {
 }
 
 // stored_path 写入（建行时还不知道路径，落盘后回填）
-import { db } from "./db.js";
+import { db } from "./db.ts";
 function dbUpdatePath(id: number, scope: string, path: string): void {
   db.prepare("UPDATE entries SET stored_path = ? WHERE id = ? AND scope = ?").run(path, id, scope);
 }
