@@ -8,6 +8,8 @@ import { env } from "node:process";
 import { buildMcpServer, handleMcpRequest } from "./mcp.ts";
 import { buildWebHandler } from "./web.ts";
 import { pageHtml } from "./page.ts";
+import { startWorker } from "./worker.ts";
+import { embeddingEnabled } from "./embed.ts";
 import "./db.ts";
 
 const PORT = Number(env.KB_PORT ?? 3001);
@@ -50,4 +52,6 @@ const httpServer = createServer(async (req, res) => {
 
 httpServer.listen(PORT, () => {
   console.log(`[kb-mcp] listening on :${PORT} (auth ${BEARER_KEY === "" ? "OFF" : "ON"}, paths ${[...MCP_PATHS].join(" ")}, public ${PUBLIC_URL})`);
+  console.log(`[kb-mcp] embedding ${embeddingEnabled ? "ON（智谱 API）" : "OFF（假向量联调模式——配 EMBEDDING_API_KEY 启用）"}`);
+  startWorker();
 });

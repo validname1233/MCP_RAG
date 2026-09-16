@@ -10,6 +10,8 @@ import { mkdir, rm, writeFile } from "node:fs/promises";
 import { basename, join } from "node:path";
 import type { IncomingMessage, ServerResponse } from "node:http";
 import { scopeByToken, entriesByScope, insertEntry, entryById, deleteEntry, entryDir } from "./db.ts";
+import { enqueue } from "./worker.ts";
+import { vectorStore } from "./vector-store.ts";
 
 // 单文件上限（字节）。家用文档场景 200MB 足够，防误传超大文件占满盘。
 const MAX_SIZE = 200 * 1024 * 1024;
@@ -156,6 +158,7 @@ export function buildWebHandler(pageHtml: (token: string) => string) {
         await mkdir(dir, { recursive: true });
         await writeFile(stored, part.data);
         dbUpdatePath(id, scope, stored);
+        enqueue(id); // 触发流水线：解析→切块→embed→入库（worker 异步消化，见 worker.ts）
         json(res, 200, { id, filename: part.filename, size: part.data.length });
         return true;
       }
@@ -181,6 +184,8 @@ export function buildWebHandler(pageHtml: (token: string) => string) {
         }
         deleteEntry.run(id, scope);
         await rm(entryDir(scope, id), { recursive: true, force: true });
+        db.prepare("DELETE FROM chunks WHERE entry_id = ?").run(id);
+        await vectorStore.remove(id); // 向量同步清理，防孤儿向量被召回
         json(res, 200, { ok: true });
         return true;
       }

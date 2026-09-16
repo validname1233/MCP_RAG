@@ -27,11 +27,26 @@ db.exec(`
     stored_path TEXT NOT NULL,
     size        INTEGER NOT NULL,
     mime        TEXT,
-    status      TEXT NOT NULL DEFAULT 'ready',
+    status      TEXT NOT NULL DEFAULT 'queued',
     error       TEXT,
     created_at  TEXT NOT NULL DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_entries_scope ON entries(scope);
+  CREATE TABLE IF NOT EXISTS chunks (
+    id       INTEGER PRIMARY KEY AUTOINCREMENT,
+    entry_id INTEGER NOT NULL,
+    idx      INTEGER NOT NULL,
+    heading  TEXT NOT NULL DEFAULT '',
+    prefix   TEXT NOT NULL DEFAULT '',
+    text     TEXT NOT NULL
+  );
+  CREATE INDEX IF NOT EXISTS idx_chunks_entry ON chunks(entry_id);
+  CREATE TABLE IF NOT EXISTS vectors (
+    entry_id INTEGER NOT NULL,
+    idx      INTEGER NOT NULL,
+    vector   TEXT NOT NULL,
+    PRIMARY KEY (entry_id, idx)
+  );
 `);
 
 // ---------- tokens ----------
