@@ -5,6 +5,7 @@
 import type { KbParser, ParsedDoc } from "./types.ts";
 import { ParseError } from "./types.ts";
 import { plainParser } from "./plain.ts";
+import { pdfParser } from "./pdf.ts";
 
 const registry = new Map<string, KbParser>();
 const formatChains = new Map<string, KbParser[]>();
@@ -19,9 +20,10 @@ export function registerParser(parser: KbParser): void {
   }
 }
 
-// 内置解析器在此登记。阶段二新增：pdf（pdf-parse）、docx（mammoth）；
-// 阶段三：MinerU 外部解析器（HTTP 适配器）——都只是这里加一行。
+// 内置解析器在此登记。阶段三：MinerU 外部解析器（HTTP 适配器，注册为 pdf 第二
+// 候选，数字版失败自动降级到 OCR）——只是这里加一行。
 registerParser(plainParser);
+registerParser(pdfParser);
 
 export function parsersFor(filename: string): KbParser[] {
   const dot = filename.lastIndexOf(".");
