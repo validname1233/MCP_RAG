@@ -79,15 +79,16 @@ export async function processEntry(id: number): Promise<void> {
       id * 1000,
     );
 
-    // 事务性落库：chunks 表 + 向量存储同写同删（删除条目时也走 vectorStore.remove）
+    // 落库：chunks（SQLite 事务）+ 向量（LanceDB，非事务——失败时条目标 failed，
+    // 重跑会先清后写，最终一致；跨存储无法做原子事务，靠幂等 upsert 保证）
     const insertChunk = db.prepare(
       "INSERT INTO chunks (entry_id, idx, heading, prefix, text) VALUES (?, ?, ?, ?, ?)",
     );
     db.exec("BEGIN");
     db.prepare("DELETE FROM chunks WHERE entry_id = ?").run(id); // 重跑场景先清旧块
     for (const c of chunks) insertChunk.run(id, c.index, c.heading, c.prefix, c.text);
-    await vectorStore.upsert(entry.scope, id, chunks, vectors);
     db.exec("COMMIT");
+    await vectorStore.upsert(entry.scope, id, chunks, vectors);
 
     setStatus.run("searchable", id);
     console.log(

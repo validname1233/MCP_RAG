@@ -41,13 +41,10 @@ db.exec(`
     text     TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_chunks_entry ON chunks(entry_id);
-  CREATE TABLE IF NOT EXISTS vectors (
-    entry_id INTEGER NOT NULL,
-    idx      INTEGER NOT NULL,
-    vector   TEXT NOT NULL,
-    PRIMARY KEY (entry_id, idx)
-  );
 `);
+
+// vectors 桩表已退役（2026-09-18 迁移至 LanceDB，data/vectors.lance/ 目录，
+// 见 src/vector-store.ts）。新库不再建该表；旧库由 scripts/migrate-vectors-to-lance.ts DROP。
 
 // ---------- tokens ----------
 export const tokenByScope = db.prepare("SELECT token FROM tokens WHERE scope = ?");
