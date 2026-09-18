@@ -41,7 +41,28 @@ function splitLongParagraph(p: string, limit: number): string[] {
   return out;
 }
 
-export function chunkDocument(filename: string, text: string): Chunk[] {
+export function chunkDocument(filename: string, text: string, sections?: Array<{ heading?: string; text: string }>): Chunk[] {
+  // 有结构（xlsx 的 sheet / MinerU 的章节）：按 section 边界切块——section 内
+  // 超长再走段落逻辑；section 是外部解析器给的最强语义边界，绝不跨 section 切。
+  if (sections !== undefined && sections.length > 0) {
+    const chunks: Chunk[] = [];
+    for (const sec of sections) {
+      const heading = (sec.heading ?? "").trim();
+      const prefix = heading !== "" && heading !== filename ? `${filename} · ${heading}` : filename;
+      // 表格行序列化文本（行间 \n\n）天然一行一记录：整 section 不超限就整块
+      if (sec.text.length <= MAX) {
+        if (sec.text.trim() !== "") {
+          chunks.push({ index: chunks.length, heading, prefix, text: sec.text });
+        }
+        continue;
+      }
+      for (const chunk of chunkDocument(prefix, sec.text)) {
+        chunks.push({ ...chunk, index: chunks.length, prefix: `${prefix}${chunk.heading !== "" ? ` · ${chunk.heading}` : ""}` });
+      }
+    }
+    return chunks;
+  }
+
   const chunks: Chunk[] = [];
   let heading = "";
   let buf: string[] = [];

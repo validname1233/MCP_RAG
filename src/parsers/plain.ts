@@ -24,7 +24,7 @@ function looksLikeGarbage(text: string): boolean {
 
 export const plainParser: KbParser = {
   name: "plain",
-  formats: ["txt", "md", "markdown", "log", "csv"],
+  formats: ["txt", "md", "markdown", "log"],
 
   async parse({ filename, data }): Promise<ParsedDoc> {
     if (data.length === 0) {

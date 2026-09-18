@@ -71,7 +71,7 @@ export async function processEntry(id: number): Promise<void> {
       mime: null,
       data,
     });
-    const chunks = chunkDocument(entry.filename, parsed.doc.text);
+    const chunks = chunkDocument(entry.filename, parsed.doc.text, parsed.doc.sections);
     if (chunks.length === 0) throw new Error("解析出的文本切不出任何块");
 
     const { vectors, fake } = await embedBatch(

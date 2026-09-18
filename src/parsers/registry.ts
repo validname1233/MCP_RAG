@@ -6,6 +6,9 @@ import type { KbParser, ParsedDoc } from "./types.ts";
 import { ParseError } from "./types.ts";
 import { plainParser } from "./plain.ts";
 import { pdfParser } from "./pdf.ts";
+import { csvParser } from "./csv.ts";
+import { xlsxParser } from "./xlsx.ts";
+import { mineruParser } from "./mineru.ts";
 
 const registry = new Map<string, KbParser>();
 const formatChains = new Map<string, KbParser[]>();
@@ -20,10 +23,17 @@ export function registerParser(parser: KbParser): void {
   }
 }
 
-// 内置解析器在此登记。阶段三：MinerU 外部解析器（HTTP 适配器，注册为 pdf 第二
-// 候选，数字版失败自动降级到 OCR）——只是这里加一行。
+// 内置解析器登记 + 候选链顺序（用户决策 2026-09-18）：
+//   pdf → [mineru, pdf-parse]  MinerU 优先（扫描件/复杂排版/表格），挂了本地兜底数字版
+//   docx/pptx/图片 → [mineru]   本地无此能力，云端纯增量
+//   xlsx/xlsm → [xlsx]          本地 SheetJS（行级类型化序列化是定制检索语义）
+//   txt/md/log → [plain]、csv/tsv → [csv]  本地直读/行序列化
+// 后注册者排前：mineru 最后注册 → pdf 链头部。
 registerParser(plainParser);
+registerParser(csvParser);
 registerParser(pdfParser);
+registerParser(xlsxParser);
+registerParser(mineruParser);
 
 export function parsersFor(filename: string): KbParser[] {
   const dot = filename.lastIndexOf(".");
