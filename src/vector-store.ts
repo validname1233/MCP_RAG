@@ -10,8 +10,8 @@
 // search 返回 (entryId, idx, score)——score 是 LanceDB 的 L2 距离（越小越近），
 // 与桩时代的余弦相似度（越大越近）方向相反，kb_search 接入时注意排序语义。
 
-import { join } from "node:path";
-import { dirname, fileURLToPath } from "node:url";
+import { dirname, join } from "node:path";
+import { fileURLToPath } from "node:url";
 import * as lancedb from "@lancedb/lancedb";
 import { db } from "./db.ts";
 
