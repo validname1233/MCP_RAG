@@ -1,0 +1,34 @@
+[
+  {
+    "id": "Q1",
+    "query": "尾巴像孔雀的小鱼适合什么水温",
+    "gold": [
+      "T-鱼类-1"
+    ],
+    "type": "semantic",
+    "answer_snippet": "二十八"
+  },
+  {
+    "id": "Q2",
+    "query": "变色龙白天要多少度",
+    "gold": [
+      "T-爬行类-2"
+    ],
+    "type": "semantic",
+    "answer_snippet": "三十二"
+  },
+  {
+    "id": "Q3",
+    "query": "T-植物-3 讲了什么植物",
+    "gold": [
+      "T-植物-3"
+    ],
+    "type": "exact"
+  },
+  {
+    "id": "Q4",
+    "query": "量子计算机的报价是多少",
+    "gold": [],
+    "type": "none"
+  }
+]

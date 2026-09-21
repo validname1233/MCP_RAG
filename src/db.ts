@@ -5,10 +5,16 @@
 import { mkdirSync } from "node:fs";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
+import { env } from "node:process";
 import { DatabaseSync } from "node:sqlite";
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), "..");
-export const DATA_DIR = join(ROOT, "data");
+// 数据目录可注入（tests/ 的白盒脚本用 KB_DATA_DIR=data-test 连独立测试库，
+// 绝不碰生产 data/）。注意：模块加载时即连库——使用方必须"先设 env 再 import"
+//（两段式动态加载，见 tests/ingest.ts 头部说明）。生产不设该变量，行为不变。
+export const DATA_DIR = env.KB_DATA_DIR !== undefined && env.KB_DATA_DIR !== ""
+  ? join(ROOT, env.KB_DATA_DIR)
+  : join(ROOT, "data");
 export const FILES_DIR = join(DATA_DIR, "files");
 mkdirSync(FILES_DIR, { recursive: true });
 

@@ -1,6 +1,7 @@
 // src/vector-store.ts —— 向量存储：LanceDB 实现（2026-09-18 从 SQLite JSON 桩切换）。
 //
-// 数据布局：data/vectors.lance/ 目录（备份 = 拷目录，与 kb.sqlite 并排）。
+// 数据布局：<DATA_DIR>/vectors.lance/ 目录（备份 = 拷目录，与 kb.sqlite 并排；
+// DATA_DIR 随 KB_DATA_DIR 注入——测试库与生产库分目录，见 db.ts）。
 // 表结构：vector(1024d) + entry_id + idx + scope —— scope 作为列使得租户隔离
 // 在向量检索层就完成（.where 过滤），与 SQL 层的隔离双保险。
 // 原文只存 SQLite chunks 表（单一数据源），这里只放向量与定位 id——召回后回
@@ -10,12 +11,10 @@
 // search 返回 (entryId, idx, score)——score 是 LanceDB 的 L2 距离（越小越近），
 // 与桩时代的余弦相似度（越大越近）方向相反，kb_search 接入时注意排序语义。
 
-import { dirname, join } from "node:path";
-import { fileURLToPath } from "node:url";
+import { join } from "node:path";
 import * as lancedb from "@lancedb/lancedb";
-import { db } from "./db.ts";
+import { db, DATA_DIR } from "./db.ts";
 
-const DATA_DIR = join(dirname(fileURLToPath(import.meta.url)), "..", "data");
 const TABLE = "chunks_vec";
 
 // 单例连接：LanceDB connect 是轻量句柄，进程内共享一个（类比 SQLite 的 db 实例）

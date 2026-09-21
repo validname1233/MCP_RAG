@@ -1,0 +1,166 @@
+// tests/eval.ts —— 检索质量与延迟评测脚本（进程内白盒，tests 方案阶段一/二）。
+// 读 tests/gold.json（query 中心标注：query + gold 文档名列表 + type + 可选
+// answer_snippet）→ 逐条 kbSearch → 文档级 Recall@K / Precision@K / MRR +
+// snippet 命中率 + 延迟 P50/P95 → 报告 eval-report.json（失败 case 明细供人工检视）。
+//
+// ⚠️ 两段式加载：同 ingest.ts——先设/读环境再动态 import src。
+// 用法：KB_DATA_DIR=data-test node --env-file=.env tests/eval.ts [--k=1,3,5] [--channel=vector]
+// channel=vector 当前唯一；fts/hybrid 是将来 FTS5 模块上线后的扩展位。
+
+import { readFileSync, writeFileSync } from "node:fs";
+import { join } from "node:path";
+
+const TEST_SCOPE = "kb:group:__ragtest__";
+const args = process.argv.slice(2);
+const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
+const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
+if (channel !== "vector") {
+  console.error(`[eval] 未知通道 ${channel}（当前只有 vector；fts/hybrid 待 FTS5 模块上线）`);
+  process.exit(1);
+}
+
+// ---- 标注文件结构 ----
+interface GoldItem {
+  id: string;
+  query: string;
+  gold: string[];              // 文档名（不含扩展名）列表；空数组 = 干扰题（无答案）
+  type: "semantic" | "exact" | "none";
+  answer_snippet?: string;     // 答案关键词——块级自动验证（出现在任一召回块文本中即命中）
+  note?: string;
+}
+
+const goldPath = join(import.meta.dirname, "gold.json");
+let gold: GoldItem[];
+try {
+  gold = JSON.parse(readFileSync(goldPath, "utf8")) as GoldItem[];
+} catch (error) {
+  console.error(`[eval] 读不到合法的 ${goldPath}：${error instanceof Error ? error.message : error}`);
+  console.error('[eval] 格式：[{"id":"Q1","query":"…","gold":["文档名"],"type":"semantic","answer_snippet":"…"}]');
+  process.exit(1);
+}
+if (gold.length === 0) {
+  console.error("[eval] gold.json 为空——先标注（见 docs/2026-09-19-RAG能力测试方案.md）");
+  process.exit(1);
+}
+console.log(`[eval] ${gold.length} 条标注（semantic ${gold.filter(g => g.type === "semantic").length} / exact ${gold.filter(g => g.type === "exact").length} / none ${gold.filter(g => g.type === "none").length}）`);
+
+// ---- 动态加载（KB_DATA_DIR 已定）----
+const { kbSearch } = await import("../src/search.ts");
+const { db } = await import("../src/db.ts");
+
+// entry_id → 文档名（去扩展名）映射：评分对账用
+const nameById = new Map<number, string>(
+  (db.prepare("SELECT id, filename FROM entries WHERE scope = ?").all(TEST_SCOPE) as Array<{ id: number; filename: string }>)
+    .map((r) => [r.id, r.filename.replace(/\.[^.]+$/, "")]),
+);
+if (nameById.size === 0) {
+  console.error(`[eval] 测试库里没有 ${TEST_SCOPE} 的条目——先跑 ingest`);
+  process.exit(1);
+}
+console.log(`[eval] 库内 ${nameById.size} 个条目`);
+
+// ---- warmup（20 条预热页缓存/句柄，不计入正式计时——方案阶段二）----
+for (const g of gold.slice(0, 20)) {
+  await kbSearch(TEST_SCOPE, g.query, 3).catch(() => undefined);
+}
+console.log("[eval] warmup 完成（20 条，不计入统计）");
+
+// ---- 逐条检索 + 评分 ----
+const MAXK = Math.max(...kList);
+interface CaseResult extends GoldItem {
+  ms: number;
+  hits: Array<{ rank: number; doc: string; snippetHit: boolean }>;
+  docRecall: boolean;   // top-K 内命中任一 gold（按最大 K 算，各 K 切片在汇总时做）
+  firstGoldRank: number | null;
+}
+
+const results: CaseResult[] = [];
+for (const g of gold) {
+  const t0 = Date.now();
+  const hits = await kbSearch(TEST_SCOPE, g.query, MAXK).catch((e: unknown) => {
+    console.error(`  ✗ ${g.id} 检索异常：${e instanceof Error ? e.message : e}`);
+    return [];
+  });
+  const ms = Date.now() - t0;
+
+  // 文档级：召回块 → 所属文档名，按首现排名去重
+  const seen = new Set<string>();
+  const ranked: Array<{ rank: number; doc: string; snippetHit: boolean }> = [];
+  for (const h of hits) {
+    const doc = nameById.get(h.entryId) ?? `#${h.entryId}`;
+    const snippetHit = g.answer_snippet !== undefined && h.text.includes(g.answer_snippet);
+    if (!seen.has(doc)) {
+      seen.add(doc);
+      ranked.push({ rank: ranked.length + 1, doc, snippetHit });
+    } else if (snippetHit) {
+      // 同文档第二块才含 snippet：把 snippet 命中上提到该文档的首次出现
+      const first = ranked.find((r) => r.doc === doc);
+      if (first !== undefined) first.snippetHit = true;
+    }
+  }
+  const goldSet = new Set(g.gold);
+  const firstGold = ranked.find((r) => goldSet.has(r.doc)) ?? null;
+  results.push({ ...g, ms, hits: ranked,
+    docRecall: firstGold !== null, firstGoldRank: firstGold?.rank ?? null });
+}
+
+// ---- 汇总（全体 + 按 type 分桶）----
+function bucket(items: CaseResult[]) {
+  const latencies = items.map((r) => r.ms).sort((a, b) => a - b);
+  const pct = (p: number) => (latencies.length === 0 ? 0 : latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * p))]);
+  const answered = items.filter((r) => r.gold.length > 0); // 有答案题（分母）
+  const perK: Record<number, { recall: number; precision: number }> = {};
+  for (const k of kList) {
+    let recalled = 0, precSum = 0;
+    for (const r of answered) {
+      const inTopK = r.hits.filter((h) => h.rank <= k);
+      if (inTopK.some((h) => r.gold.includes(h.doc))) recalled++;
+      precSum += inTopK.filter((h) => r.gold.includes(h.doc)).length / Math.max(k, 1);
+    }
+    perK[k] = {
+      recall: answered.length ? +(recalled / answered.length).toFixed(4) : 0,
+      precision: answered.length ? +(precSum / answered.length).toFixed(4) : 0,
+    };
+  }
+  const mrr = answered.length
+    ? +(answered.reduce((a, r) => a + (r.firstGoldRank !== null ? 1 / r.firstGoldRank : 0), 0) / answered.length).toFixed(4)
+    : 0;
+  // snippet 命中率：有 snippet 的题里，top-K 任一召回块含答案关键词的比例
+  const snip = items.filter((r) => r.answer_snippet !== undefined && r.answer_snippet !== "");
+  const snipHit = snip.filter((r) => r.hits.some((h) => h.snippetHit)).length;
+  // 空召回行为（干扰题应返回空/明确文案——这里看"是否一个都没召回"）
+  const noneQ = items.filter((r) => r.gold.length === 0);
+  const noneEmpty = noneQ.filter((r) => r.hits.length === 0).length;
+  return {
+    count: items.length,
+    latency: { p50: pct(0.5), p95: pct(0.95), avg: latencies.length ? Math.round(latencies.reduce((a, b) => a + b, 0) / latencies.length) : 0 },
+    perK, mrr,
+    snippetRate: snip.length ? +(snipHit / snip.length).toFixed(4) : null,
+    noneEmptyRate: noneQ.length ? +(noneEmpty / noneQ.length).toFixed(4) : null,
+  };
+}
+
+const report = {
+  scope: TEST_SCOPE, channel, kList,
+  generatedAt: new Date().toISOString(),
+  overall: bucket(results),
+  byType: {
+    semantic: bucket(results.filter((r) => r.type === "semantic")),
+    exact: bucket(results.filter((r) => r.type === "exact")),
+    none: bucket(results.filter((r) => r.type === "none")),
+  },
+  // 失败 case 明细（有答案但 top-K 没召回的）——人工检视/FTS 立项证据
+  misses: results
+    .filter((r) => r.gold.length > 0 && r.firstGoldRank === null)
+    .map((r) => ({ id: r.id, query: r.query, gold: r.gold, type: r.type,
+      returned: r.hits.slice(0, 5).map((h) => h.doc), ms: r.ms })),
+};
+const reportPath = join(import.meta.dirname, "eval-report.json");
+writeFileSync(reportPath, JSON.stringify(report, null, 2));
+
+console.log(`\n[eval] ── 全体（${report.overall.count} 题）──`);
+console.log(`  延迟 P50 ${report.overall.latency.p50}ms / P95 ${report.overall.latency.p95}ms`);
+for (const k of kList) console.log(`  Recall@${k} ${report.overall.perK[k].recall} | Precision@${k} ${report.overall.perK[k].precision}`);
+console.log(`  MRR ${report.overall.mrr} | snippet 命中 ${report.overall.snippetRate} | 干扰题空召回 ${report.overall.noneEmptyRate}`);
+console.log(`  分桶：semantic R@5 ${report.byType.semantic.perK[Math.max(...kList)]?.recall ?? "-"} / exact R@5 ${report.byType.exact.perK[Math.max(...kList)]?.recall ?? "-"}`);
+console.log(`  未命中 ${report.misses.length} 条（明细见报告）→ ${reportPath}`);

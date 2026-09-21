@@ -4,3 +4,6 @@ node_modules/
 *.log
 server.pid
 data/
+data-test/
+tests/testdata/
+tests/*.json.bak
