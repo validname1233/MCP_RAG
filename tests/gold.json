@@ -1,34 +1,33 @@
 [
   {
     "id": "Q1",
-    "query": "尾巴像孔雀的小鱼适合什么水温",
-    "gold": [
-      "T-鱼类-1"
-    ],
+    "query": "怎么让机器人每天早上九点自动跑任务",
+    "gold": ["2026-08-31-命令速查表"],
     "type": "semantic",
-    "answer_snippet": "二十八"
+    "answer_snippet": "每天固定时刻",
+    "note": "语义题（md）：问功能不提命令名，答案在 /任务 段落"
   },
   {
     "id": "Q2",
-    "query": "变色龙白天要多少度",
-    "gold": [
-      "T-爬行类-2"
-    ],
+    "query": "20级有哪些学生医保还没缴",
+    "gold": ["20级未缴医保"],
     "type": "semantic",
-    "answer_snippet": "三十二"
+    "answer_snippet": "邓丁溢",
+    "note": "语义题（xlsx）：名单首位学生；此表表头被判为数据行（列N 兜底），snippet 只能取姓名"
   },
   {
     "id": "Q3",
-    "query": "T-植物-3 讲了什么植物",
-    "gold": [
-      "T-植物-3"
-    ],
-    "type": "exact"
+    "query": "DPO.md 里 DPO 相比 PPO 的核心思想是什么",
+    "gold": ["DPO"],
+    "type": "exact",
+    "answer_snippet": "合并成了一步",
+    "note": "精确题：query 带文件名。曾考虑「彻底砍掉」但 GRPO.md 也出现，弃用（snippet 撞车会让别的文档蹭命中）"
   },
   {
     "id": "Q4",
-    "query": "量子计算机的报价是多少",
+    "query": "怎么做红烧肉",
     "gold": [],
-    "type": "none"
+    "type": "none",
+    "note": "域外干扰题（偏容易）；后续应补域内干扰，如问某 PPO 细节但期望不召回 DPO.md"
   }
 ]
