@@ -35,5 +35,18 @@ const t5 = detectHeader([["名字", null], ["张三", null], ["李四", null]]);
 // 对纯字符串表触发不了 → 走伪列名分支（既有行为，与大标题无关）
 check("单列表不被误剥行（首行保留在数据里）", JSON.stringify(t5.dataRows[0]) === '["名字",null]', JSON.stringify(t5.dataRows));
 
+// 6. 横向合并大标题（merge 回填后首行 N 个相同值）→ 也应剥掉
+const t6 = serializeTable("报表.xlsx · S1", [
+  ["季度报表", "季度报表", "季度报表"],
+  ["产品", "销量", "单价"],
+  ["A", 120, 45.5],
+  ["B", 80, 30],
+]);
+check("全同值大标题被剥掉", t6.text.includes("产品: A") && t6.text.includes("销量: 120"), t6.text.split("\n")[0]);
+
+// 7. 护栏：首行全同值但次行只有 1 个非空 → 不剥（单列形态）
+const t7 = detectHeader([["同", "同"], ["值", null]]);
+check("全同值但次行单列不剥（首行保留）", JSON.stringify(t7.dataRows[0]) === '["同","同"]', JSON.stringify(t7.dataRows));
+
 console.log(failed === 0 ? "\n全部通过 ✓" : "\n" + failed + " 项失败 ✗");
 process.exit(failed === 0 ? 0 : 1);

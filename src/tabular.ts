@@ -31,17 +31,20 @@ export function formatCell(value: unknown, colName: string): string | null {
 // 反证（第一行也全同类型）才判无表头 → 伪造 列N(类型) 名。
 //
 // 大标题否决（2026-09-22 增强）：中文办公表常见"首行是大标题（合并单元格横跨
-// 整表或只填 A1），第二行才是真表头"。特征：首行只有 1 个非空单元格。
-// 剥掉它用下一行重判。护栏（防误伤单列表）：只剥【首行恰好 1 个非空、且
-// 下一行有 ≥2 个非空】的形态——大标题的下一行是真表头/数据（多列），
-// 而真单列表的下一行同样只有 1 个非空，不满足则不剥。
+// 整表或只填 A1），第二行才是真表头"。两个特征，命中其一即剥掉首行重判：
+//   ① 首行仅 1 个非空单元格（标题只填 A1 / 合并但未回填）
+//   ② 首行 ≥2 个非空且值完全相同（合并单元格经 merge 回填后铺满整行——
+//     真表头的列名几乎不可能全部同名）
+// 护栏（防误伤单列表）：还需次行 ≥2 个非空（次行是真表头/多列数据；
+// 真单列表的次行同样只有 1 个非空，不满足则不剥）。
 export function detectHeader(rows: unknown[][]): { header: string[]; dataRows: unknown[][] } {
   if (rows.length === 0) return { header: [], dataRows: [] };
 
-  // 大标题否决（单层）：首行仅 1 个非空 + 次行 ≥2 个非空 → 剥首行重判
-  const countNonEmpty = (row: unknown[]): number =>
-    row.filter((v) => v !== null && v !== undefined && String(v ?? "").trim() !== "").length;
-  if (rows.length > 1 && countNonEmpty(rows[0]) === 1 && countNonEmpty(rows[1]) >= 2) {
+  const nonEmpty = (row: unknown[]): unknown[] =>
+    row.filter((v) => v !== null && v !== undefined && String(v ?? "").trim() !== "");
+  const first = nonEmpty(rows[0]);
+  const allSame = first.length >= 2 && first.every((v) => String(v) === String(first[0]));
+  if (rows.length > 1 && (first.length === 1 || allSame) && nonEmpty(rows[1]).length >= 2) {
     return detectHeaderWithRules(rows.slice(1));
   }
 
