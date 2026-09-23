@@ -59,6 +59,26 @@ if (nameById.size === 0) {
 }
 console.log(`[eval] 库内 ${nameById.size} 个条目`);
 
+// ---- 标注对账：gold 文档名必须能在库内找到（防假 miss）----
+// 手标 gold 最容易出的错是拼写/全半角/大小写不一致——名字对不上该题就永远
+// 召回不了，整轮评测出假 miss 还以为是检索差。对不上就硬中止（在 warmup
+// 之前，一次 query embedding 都不烧），逐条列出让人改 gold 或查入库失败。
+const known = new Set(nameById.values());
+const badGold: string[] = [];
+for (const g of gold) {
+  if (g.type !== "none" && g.gold.length === 0) badGold.push(`${g.id}：type=${g.type} 但 gold 为空`);
+  for (const name of g.gold) {
+    if (!known.has(name)) badGold.push(`${g.id}：gold「${name}」不在库内`);
+  }
+}
+if (badGold.length > 0) {
+  console.error(`[eval] gold.json 有 ${badGold.length} 处与库内文档对不上，中止：`);
+  for (const b of badGold) console.error(`  ✗ ${b}`);
+  console.error("[eval] gold 用「去扩展名的文件名」且须与库内完全一致（大小写/全半角/空格）；");
+  console.error("[eval] 若名字没拼错，则是该文档没入库成功——查 tests/ingest-report.json 的 failed 项");
+  process.exit(1);
+}
+
 // ---- warmup（20 条预热页缓存/句柄，不计入正式计时——方案阶段二）----
 for (const g of gold.slice(0, 20)) {
   await kbSearch(TEST_SCOPE, g.query, 3).catch(() => undefined);

@@ -1,5 +1,6 @@
 // tests/ingest.ts —— 入库测试脚本（进程内白盒，tests 方案阶段一）。
-// 读 tests/testdata/ 下的 .md/.txt/.csv/.xlsx 文档 → 走真实流水线（解析→切块
+// 读 tests/testdata/ 下的 .md/.txt/.csv/.xlsx/.pdf 文档（pdf 走 MinerU 云端
+// 回退链，单篇约 30~60s，注意配额）→ 走真实流水线（解析→切块
 // →embed→落库）写入 KB_DATA_DIR 指定的测试库 → 逐文档打点 → 报告 ingest-report.json。
 //
 // ⚠️ 两段式加载（必须）：db.ts 是模块加载时就连库的单例，KB_DATA_DIR 必须在
@@ -37,12 +38,21 @@ if (!embeddingEnabled) {
 }
 
 // ---- 2. 收集文档 ----
-const files = readdirSync(dataDirArg)
-  .filter((f) => /\.(md|txt|csv|xlsx)$/i.test(f))
+// 本地可解析格式与 registry 对齐（pdf → [mineru, pdf-parse]，云端回退链，
+// 单篇约 30~60s 注意配额）。不支持扩展名的文件点名报出，绝不静默跳过——
+// 否则 gold 标注指向没入库的文档，eval 全成假 miss。
+const SUPPORTED = /\.(md|txt|log|csv|tsv|xlsx|xlsm|pdf)$/i;
+const allFiles = readdirSync(dataDirArg)
   .map((f) => join(dataDirArg, f))
   .filter((f) => statSync(f).isFile());
+const files = allFiles.filter((f) => SUPPORTED.test(f));
+const skipped = allFiles.filter((f) => !SUPPORTED.test(f));
+if (skipped.length > 0) {
+  const names = skipped.map((f) => f.split("/").pop()!.split("\\").pop()!);
+  console.warn(`[ingest] ⚠ 跳过 ${skipped.length} 个不支持的文件：${names.slice(0, 5).join("、")}${names.length > 5 ? " 等" : ""}`);
+}
 if (files.length === 0) {
-  console.error(`[ingest] ${dataDirArg} 下没有可入库的文档（支持 md/txt/csv/xlsx）`);
+  console.error(`[ingest] ${dataDirArg} 下没有可入库的文档（支持 md/txt/log/csv/tsv/xlsx/xlsm/pdf）`);
   process.exit(1);
 }
 console.log(`[ingest] ${files.length} 个文档待入库 → scope ${TEST_SCOPE}`);
