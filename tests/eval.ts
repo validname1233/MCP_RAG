@@ -59,6 +59,17 @@ if (nameById.size === 0) {
 }
 console.log(`[eval] 库内 ${nameById.size} 个条目`);
 
+// 单块/多块分桶依据（gold-review-round3.md 发现）：单块文档（短 md 常见）
+// 的文档召回与 snippet 命中严格合一（唯一块必然含 snippet），两级指标退化为
+// 一级——混在一起统计会让 snippet 命中率被"天然满分"拉高。分桶后多块桶才是
+// 有区分度的口径（测"召回的块里有没有答案块"）。
+const chunksPerDoc = new Map<string, number>(
+  (db.prepare(
+    "SELECT e.id, COUNT(c.id) AS n FROM entries e LEFT JOIN chunks c ON c.entry_id = e.id WHERE e.scope = ? GROUP BY e.id",
+  ).all(TEST_SCOPE) as Array<{ id: number; n: number }>)
+    .map((r) => [nameById.get(r.id) ?? `#${r.id}`, r.n]),
+);
+
 // ---- 标注对账：gold 文档名必须能在库内找到（防假 miss）----
 // 手标 gold 最容易出的错是拼写/全半角/大小写不一致——名字对不上该题就永远
 // 召回不了，整轮评测出假 miss 还以为是检索差。对不上就硬中止（在 warmup
@@ -92,6 +103,7 @@ interface CaseResult extends GoldItem {
   hits: Array<{ rank: number; doc: string; snippetHit: boolean }>;
   docRecall: boolean;   // top-K 内命中任一 gold（按最大 K 算，各 K 切片在汇总时做）
   firstGoldRank: number | null;
+  singleChunk: boolean; // gold 全部为单块文档（文档召回≈snippet 命中，无区分度）
 }
 
 const results: CaseResult[] = [];
@@ -120,8 +132,10 @@ for (const g of gold) {
   }
   const goldSet = new Set(g.gold);
   const firstGold = ranked.find((r) => goldSet.has(r.doc)) ?? null;
+  // 单块判定：gold 文档全部在库里只切出一块（gold 含多块文档时按多块算）
+  const singleChunk = g.gold.length > 0 && g.gold.every((d) => (chunksPerDoc.get(d) ?? 0) <= 1);
   results.push({ ...g, ms, hits: ranked,
-    docRecall: firstGold !== null, firstGoldRank: firstGold?.rank ?? null });
+    docRecall: firstGold !== null, firstGoldRank: firstGold?.rank ?? null, singleChunk });
 }
 
 // ---- 汇总（全体 + 按 type 分桶）----
@@ -169,6 +183,12 @@ const report = {
     exact: bucket(results.filter((r) => r.type === "exact")),
     none: bucket(results.filter((r) => r.type === "none")),
   },
+  // 单块/多块分桶（gold-review-round3 建议）：单块文档文档召回≈snippet 命中
+  // （唯一块必然含 snippet），是天然满分层；多块桶才测"答案块有没有跟上来"。
+  byChunkiness: {
+    singleChunk: bucket(results.filter((r) => r.singleChunk)),
+    multiChunk: bucket(results.filter((r) => !r.singleChunk)),
+  },
   // 失败 case 明细（有答案但 top-K 没召回的）——人工检视/FTS 立项证据
   misses: results
     .filter((r) => r.gold.length > 0 && r.firstGoldRank === null)
@@ -183,4 +203,5 @@ console.log(`  延迟 P50 ${report.overall.latency.p50}ms / P95 ${report.overall
 for (const k of kList) console.log(`  Recall@${k} ${report.overall.perK[k].recall} | Precision@${k} ${report.overall.perK[k].precision}`);
 console.log(`  MRR ${report.overall.mrr} | snippet 命中 ${report.overall.snippetRate} | 干扰题空召回 ${report.overall.noneEmptyRate}`);
 console.log(`  分桶：semantic R@5 ${report.byType.semantic.perK[Math.max(...kList)]?.recall ?? "-"} / exact R@5 ${report.byType.exact.perK[Math.max(...kList)]?.recall ?? "-"}`);
+console.log(`  块数分桶：单块题 ${report.byChunkiness.singleChunk.count} 个（snippet率 ${report.byChunkiness.singleChunk.snippetRate}）| 多块题 ${report.byChunkiness.multiChunk.count} 个（snippet率 ${report.byChunkiness.multiChunk.snippetRate}）——多块桶才是有区分度的口径`);
 console.log(`  未命中 ${report.misses.length} 条（明细见报告）→ ${reportPath}`);
