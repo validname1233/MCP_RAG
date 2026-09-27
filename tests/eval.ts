@@ -198,6 +198,14 @@ const report = {
     .filter((r) => r.gold.length > 0 && r.firstGoldRank === null)
     .map((r) => ({ id: r.id, query: r.query, gold: r.gold, type: r.type,
       returned: r.hits.slice(0, 5).map((h) => h.doc), ms: r.ms })),
+  // snippet 未命中明细（文档召回了、但答案块没进 top-K）——rerank 立项证据：
+  // 这个差值 = "模型上下文里有正确文档、却没有答案文本"的比例
+  snippetMisses: results
+    .filter((r) => r.answer_snippet !== undefined && r.answer_snippet !== "" && r.firstGoldRank !== null
+      && !r.hits.some((h) => h.snippetHit))
+    .map((r) => ({ id: r.id, query: r.query, gold: r.gold, type: r.type,
+      goldRank: r.firstGoldRank, singleChunk: r.singleChunk,
+      returned: r.hits.slice(0, 5).map((h) => h.doc), ms: r.ms })),
 };
 const reportPath = join(import.meta.dirname, "eval-report.json");
 writeFileSync(reportPath, JSON.stringify(report, null, 2));
