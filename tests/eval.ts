@@ -4,14 +4,17 @@
 // snippet 命中率 + 延迟 P50/P95 → 报告 eval-report.json（失败 case 明细供人工检视）。
 //
 // ⚠️ 两段式加载：同 ingest.ts——先设/读环境再动态 import src。
-// 用法：KB_DATA_DIR=data-test node --env-file=.env tests/eval.ts [--k=1,3,5] [--channel=vector]
+// 用法：KB_DATA_DIR=data-test node --env-file=.env tests/eval.ts [--k=1,3,5] [--channel=vector] [--gold=gold.json]
 // channel=vector 当前唯一；fts/hybrid 是将来 FTS5 模块上线后的扩展位。
+// --gold 指定标注文件（tests/ 目录下相对名）——分阶段跑库时用子集（如先只入
+// md 时 --gold=gold-md.json），否则 pdf 题在对账处硬中止。
 
 import { readFileSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 
 const TEST_SCOPE = "kb:group:__ragtest__";
 const args = process.argv.slice(2);
+const goldFile = args.find((a) => a.startsWith("--gold="))?.slice(7) ?? "gold.json";
 const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
 const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 if (channel !== "vector") {
@@ -29,7 +32,7 @@ interface GoldItem {
   note?: string;
 }
 
-const goldPath = join(import.meta.dirname, "gold.json");
+const goldPath = join(import.meta.dirname, goldFile);
 let gold: GoldItem[];
 try {
   gold = JSON.parse(readFileSync(goldPath, "utf8")) as GoldItem[];
@@ -48,9 +51,10 @@ console.log(`[eval] ${gold.length} 条标注（semantic ${gold.filter(g => g.typ
 const { kbSearch } = await import("../src/search.ts");
 const { db } = await import("../src/db.ts");
 
-// entry_id → 文档名（去扩展名）映射：评分对账用
+// entry_id → 文档名（去扩展名）映射：评分对账用。只认 searchable——解析失败
+// 的 entry 也在表里（ingest 先建条目后解析），放行会变成静默假 miss。
 const nameById = new Map<number, string>(
-  (db.prepare("SELECT id, filename FROM entries WHERE scope = ?").all(TEST_SCOPE) as Array<{ id: number; filename: string }>)
+  (db.prepare("SELECT id, filename FROM entries WHERE scope = ? AND status = 'searchable'").all(TEST_SCOPE) as Array<{ id: number; filename: string }>)
     .map((r) => [r.id, r.filename.replace(/\.[^.]+$/, "")]),
 );
 if (nameById.size === 0) {

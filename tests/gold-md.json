@@ -1,0 +1,202 @@
+[
+  {
+    "id": "Q65",
+    "query": "RoPE旋转位置编码跟普通位置编码比，位置信息加在哪里",
+    "gold": [
+      "位置编码"
+    ],
+    "type": "semantic",
+    "answer_snippet": "把位置编码到 Attention 的 Q/K 里面",
+    "note": "语义题（md）：技术对比（普通=嵌入层前相加；RoPE=编进Q/K）。长句锚点21字含英文，1次。全库唯一，命中 1/1 块——单块短文档，无MinerU风险（plain原样入库）"
+  },
+  {
+    "id": "Q66",
+    "query": "Transformer为什么选LayerNorm而不是BatchNorm",
+    "gold": [
+      "层归一化（Layer Normalization）"
+    ],
+    "type": "semantic",
+    "answer_snippet": "如果 Batch Size 太小，统计出的均值和方差就不准确",
+    "note": "语义题（md）：选型理由（BN两大问题之一，另一为padding噪声）。长句锚点24字含英文空格，1次。全库唯一，命中 1/6 块"
+  },
+  {
+    "id": "Q67",
+    "query": "Java不可变类的字段如果引用了可变对象， getter要怎么处理",
+    "gold": [
+      "不可变类"
+    ],
+    "type": "semantic",
+    "answer_snippet": "如果字段引用了可变对象，getter必须返回副本",
+    "note": "语义题（md）：五条件之第五条。长句锚点22字，1次。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q68",
+    "query": "Java序列化的时候怎么跳过敏感字段不写入",
+    "gold": [
+      "序列化和反序列化"
+    ],
+    "type": "semantic",
+    "answer_snippet": "序列化时自动跳过",
+    "note": "语义题（md）：transient 关键字作用（锚点避开反引号包裹的 transient 字面量，取其效果短语，8字1次）。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q69",
+    "query": "Elasticsearch的倒排索引和普通数据库找数据的方式有什么不同",
+    "gold": [
+      "Elasticsearch"
+    ],
+    "type": "semantic",
+    "answer_snippet": "倒排索引可以通过内容找出现在哪些文档",
+    "note": "语义题（md）：核心概念（普通=文档找内容，倒排=内容找文档）。长句锚点18字，1次。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q70",
+    "query": "Python协程和普通函数最本质的区别是什么",
+    "gold": [
+      "异步（Python）"
+    ],
+    "type": "semantic",
+    "answer_snippet": "可以“暂停和恢复”的函数",
+    "note": "语义题（md）：概念定义（含中文引号，12字1次）。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q71",
+    "query": "LoRA微调为什么能省那么多显存",
+    "gold": [
+      "显存计算"
+    ],
+    "type": "semantic",
+    "answer_snippet": "LoRA冻结了源模型的参数",
+    "note": "语义题（md）：机理（冻结→优化器不用为全参数维护状态+跳过源模型梯度）。锚点11字含英文，1次。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q72",
+    "query": "DPO训练时模型参数朝什么方向调整算是学到了偏好",
+    "gold": [
+      "DPO"
+    ],
+    "type": "semantic",
+    "answer_snippet": "只要能让“好回答的相对概率变高，坏回答的相对概率变低”",
+    "note": "语义题（md）：优化方向（含中文引号长句27字，1次）。全库唯一，命中 1/2 块。DPO.md 本文档唯一题（核心思想侧面）"
+  },
+  {
+    "id": "Q73",
+    "query": "注意力公式里为什么要对QK乘积除以根号dk",
+    "gold": [
+      "Attention机制"
+    ],
+    "type": "semantic",
+    "answer_snippet": "除以d_k之后，保证每一排方差仍然为1",
+    "note": "语义题（md）：数值稳定性机理（锚点18字含下标记号d_k，1次）。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q74",
+    "query": "Spring什么是循环依赖问题",
+    "gold": [
+      "Spring循环依赖"
+    ],
+    "type": "semantic",
+    "answer_snippet": "导致 Spring 在创建对象时绕不出来",
+    "note": "语义题（md）：概念定义（A依赖B、B又依赖A）。锚点16字含英文空格，1次。全库唯一，命中 1/2 块"
+  },
+  {
+    "id": "Q75",
+    "query": "为什么大模型不知道今天几号，给它加时钟工具的问题背景是什么",
+    "gold": [
+      "问题复盘_2026-09-18_模型对时间无感知get_time工具"
+    ],
+    "type": "semantic",
+    "answer_snippet": "训练数据有截止日期，推理时也没有任何时钟输入",
+    "note": "语义题（md）：问题复盘的病因句（21字，1次）。全库唯一，命中 1/6 块"
+  },
+  {
+    "id": "Q76",
+    "query": "校园网DPI防火墙的穿透方案里，流量伪装成什么样的外观",
+    "gold": [
+      "Headscale校园网穿透复盘报告"
+    ],
+    "type": "semantic",
+    "answer_snippet": "所有穿越校园网防火墙的流量在外观上均为标准 HTTPS / WebSocket",
+    "note": "语义题（md）：方案结论（TL;DR句，31字含英文斜杠，1次）。全库唯一，命中 1/49 块——49块大复盘文档，属难题"
+  },
+  {
+    "id": "Q77",
+    "query": "MSCKF在EKF-VIO领域是什么地位",
+    "gold": [
+      "EKF-VIO系统流程详解_2026-09-06"
+    ],
+    "type": "semantic",
+    "answer_snippet": "MSCKF（Multi-State Constraint Kalman Filter）——EKF-VIO 的经典范式",
+    "note": "语义题（md）：定位句（含括号英文与破折号，1次）。全库唯一，命中 1/19 块"
+  },
+  {
+    "id": "Q78",
+    "query": "hflip消融实验里，预训练对照组之间控制了什么变量",
+    "gold": [
+      "微调实验汇报_hflip有效性与对标开源_2026-09-11"
+    ],
+    "type": "semantic",
+    "answer_snippet": "唯一系统差异是 hflip 是否贯穿",
+    "note": "语义题（md）：受控实验设计（16字含英文空格，1次）。全库唯一，命中 2/15 块。2026-09-24 审查⚠：hflip 字样散见 7 份实验文档（纯hflip报告 37 次），受控对比题在家族内有竞争——保留为观察点；另 80 字重叠致双块载（2/15），块命中数≠原文次数"
+  },
+  {
+    "id": "Q79",
+    "query": "《命令速查表》里 /stop 命令是干什么用的",
+    "gold": [
+      "2026-08-31-命令速查表"
+    ],
+    "type": "exact",
+    "answer_snippet": "每个会话同时只能跑一个长任务",
+    "note": "精确题（md）：query 带文档名问功能（强制中断长任务；锚点取约束句14字，1次）。2026-09-24 审查修正：原 note 称「功能主句跨行弃用」有误——md 源第9行是单行；实际是约束句措辞恰好避开与操作手册的重叠。审查⚠：操作手册含同一 /stop 命令更详尽版本且 5 次提及「命令速查表」，可抢召回首位——保留为派生孪生观察点。全库唯一，命中 1/1 块。与 Q1（旧md批次已删）同域"
+  },
+  {
+    "id": "Q80",
+    "query": "GRPO里Reward Model和Critic Model各自的去向是什么",
+    "gold": [
+      "GRPO"
+    ],
+    "type": "semantic",
+    "answer_snippet": "或换成 Rule-based 规则打分",
+    "note": "语义题（md）：GRPO三模型对比表（RM保留可换规则打分，Critic砍掉）。锚点13字含英文，1次。全库唯一，命中 1/3 块。与 Q72（DPO）构成 PPO 家族跨文档对照（PPO.md/GRPO.md/DPO.md 三兄弟，靠文件名 GRPO 钉定——审查确认 PPO.md 确实存在，此钉必要）"
+  },
+  {
+    "id": "Q81",
+    "query": "工具权限的判定规则是什么顺序",
+    "gold": [
+      "工具调用的安全性"
+    ],
+    "type": "semantic",
+    "answer_snippet": "判定逻辑从上到下，命中即返回",
+    "note": "语义题（md）：Permission Stack 机制（BYPASS→白名单→ASK）。锚点14字，1次。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q82",
+    "query": "互联网语料清洗的流程里语言过滤那一步用什么工具",
+    "gold": [
+      "互联网数据处理（清洗、去重、去隐私）"
+    ],
+    "type": "semantic",
+    "answer_snippet": "FastText语言检测与智能过滤",
+    "note": "语义题（md）：流程要点（13字含英文，1次）。全库唯一，命中 1/1 块"
+  },
+  {
+    "id": "Q83",
+    "query": "RAG分块的时候给每个片段加上文档标题或章节标题，这种技术叫什么",
+    "gold": [
+      "RAG优化策略"
+    ],
+    "type": "semantic",
+    "answer_snippet": "上下文片段标题（CCH）",
+    "note": "语义题（md）：术语概念（含括号英文缩写，13字2次——定义与展开段各一）。全库唯一，命中 1/2 块。注：本项目 chunker 的 prefix 即同类思想。2026-09-24 审查⚠：同一技术三称谓——分块调研报告叫「面包屑前缀」、本项目 MCP 方案是自己的 prefix 设计、「叫什么」型 query 存在召回+术语双竞争——保留为同物异名观察点"
+  },
+  {
+    "id": "Q84",
+    "query": "《Transformer》笔记里推理流程中词嵌入和位置编码是怎么合并的",
+    "gold": [
+      "Transformer"
+    ],
+    "type": "exact",
+    "answer_snippet": "词嵌入+位置编码（element-wise addition）",
+    "note": "精确题（md）：query 带文档名问流程第8步（锚点含+号/括号/英文，1次）。全库唯一，命中 1/1 块"
+  }
+]
