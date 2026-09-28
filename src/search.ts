@@ -27,7 +27,9 @@ export async function kbSearch(scope: string, query: string, topK: number): Prom
   if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");
 
   // 2. 向量召回：LanceDB scope 过滤 + SQLite searchable 核对（多取一倍已在内处理）
-  const hits = await vectorStore.search(scope, queryVec, Math.max(1, Math.min(topK, 20)));
+  // topK 上限默认 20；两阶段检索（召回扩窗→rerank）实验时用 KB_MAX_TOPK 放开。
+  const maxTopK = Number(process.env.KB_MAX_TOPK ?? 20);
+  const hits = await vectorStore.search(scope, queryVec, Math.max(1, Math.min(topK, maxTopK)));
   if (hits.length === 0) return [];
 
   // 3. 回 SQLite 取原文（复合键 (entry_id, idx) 批量取，单一数据源）
