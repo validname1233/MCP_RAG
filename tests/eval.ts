@@ -4,8 +4,8 @@
 // snippet 命中率 + 延迟 P50/P95 → 报告 eval-report.json（失败 case 明细供人工检视）。
 //
 // ⚠️ 两段式加载：同 ingest.ts——先设/读环境再动态 import src。
-// 用法：KB_DATA_DIR=data-test node --env-file=.env tests/eval.ts [--k=1,3,5] [--channel=vector] [--gold=gold.json]
-// channel=vector 当前唯一；fts/hybrid 是将来 FTS5 模块上线后的扩展位。
+// 用法：KB_DATA_DIR=data-test node --env-file=.env tests/eval.ts [--k=1,3,5] [--channel=vector|rerank] [--gold=gold.json]
+// channel：vector = 纯向量基线；rerank = 两阶段（召回窗口→智谱精排）；fts/hybrid 待 FTS5。
 // --gold 指定标注文件（tests/ 目录下相对名）——分阶段跑库时用子集（如先只入
 // md 时 --gold=gold-md.json），否则 pdf 题在对账处硬中止。
 
@@ -15,13 +15,21 @@ import { join } from "node:path";
 const TEST_SCOPE = "kb:group:__ragtest__";
 const args = process.argv.slice(2);
 const goldFile = args.find((a) => a.startsWith("--gold="))?.slice(7) ?? "gold.json";
-const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
+// 通道：vector = 关 rerank 的纯向量基线（RERANK_ENABLED=0 强制）；rerank = 两阶段
+//（召回 KB_RERANK_CANDIDATES → 智谱精排 → topK）。A/B 对照 K 曲线天花板。
 const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
-if (channel !== "vector") {
-  console.error(`[eval] 未知通道 ${channel}（当前只有 vector；fts/hybrid 待 FTS5 模块上线）`);
+if (channel === "rerank") {
+  process.env.RERANK_ENABLED = "1";
+  process.env.KB_RERANK_CANDIDATES = process.env.KB_RERANK_CANDIDATES ?? "20";
+  process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
+} else if (channel === "vector") {
+  process.env.RERANK_ENABLED = "0";
+} else {
+  console.error(`[eval] 未知通道 ${channel}（vector | rerank）`);
   process.exit(1);
 }
-
+const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
+const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 // ---- 标注文件结构 ----
 interface GoldItem {
   id: string;
