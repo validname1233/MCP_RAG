@@ -29,7 +29,6 @@ if (channel === "rerank") {
   process.exit(1);
 }
 const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
-const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 // ---- 标注文件结构 ----
 interface GoldItem {
   id: string;
