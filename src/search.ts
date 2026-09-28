@@ -11,6 +11,7 @@ import { db } from "./db.ts";
 import { embedBatch } from "./embed.ts";
 import { vectorStore } from "./vector-store.ts";
 import { rerank, rerankEnabled } from "./rerank.ts";
+import { config } from "./config.ts";
 
 export interface SearchHit {
   entryId: number;
@@ -30,10 +31,10 @@ export async function kbSearch(scope: string, query: string, topK: number): Prom
   const { vectors: [queryVec], fake } = await embedBatch([query]);
   if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");
 
-  // 2. 向量召回：rerank 启用时扩窗取候选（两阶段：先粗排够多的候选，精排再取 topK）
-  const maxTopK = Number(process.env.KB_MAX_TOPK ?? 20);
-  const candidates = rerankEnabled ? Number(process.env.KB_RERANK_CANDIDATES ?? 20) : topK;
-  const hits = await vectorStore.search(scope, queryVec, Math.max(1, Math.min(Math.max(topK, candidates), maxTopK)));
+  // 2. 向量召回：rerank 启用时扩窗取候选（两阶段：先粗排够多的候选，精排再取 topK）。
+  //    窗口与上限都来自 config（config.json / 环境变量，见 src/config.ts）
+  const candidates = rerankEnabled ? config.rerank.candidates : topK;
+  const hits = await vectorStore.search(scope, queryVec, Math.max(1, Math.min(Math.max(topK, candidates), config.search.maxTopK)));
   if (hits.length === 0) return [];
 
   // 3. 回 SQLite 取原文（复合键 (entry_id, idx) 批量取，单一数据源）

@@ -15,11 +15,11 @@ import { join } from "node:path";
 const TEST_SCOPE = "kb:group:__ragtest__";
 const args = process.argv.slice(2);
 const goldFile = args.find((a) => a.startsWith("--gold="))?.slice(7) ?? "gold.json";
-// 通道：vector = 关 rerank 的纯向量基线（RERANK_ENABLED=0 强制）；rerank = 两阶段
-//（召回 KB_RERANK_CANDIDATES → 智谱精排 → topK）。A/B 对照 K 曲线天花板。
+// 通道：vector = 纯向量基线（rerank 强制关）；rerank = 两阶段（provider 由
+// RERANK_PROVIDER 选（zhipu|ali），窗口 KB_RERANK_CANDIDATES）。A/B 对照 K 曲线天花板。
 const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 if (channel === "rerank") {
-  process.env.RERANK_ENABLED = "1";
+  process.env.RERANK_PROVIDER = process.env.RERANK_PROVIDER ?? "ali";
   process.env.KB_RERANK_CANDIDATES = process.env.KB_RERANK_CANDIDATES ?? "20";
   process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
 } else if (channel === "vector") {

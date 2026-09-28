@@ -9,3 +9,4 @@ tests/testdata/
 tests/*.json.bak
 tests/ingest-report.json
 tests/eval-report.json
+config.json

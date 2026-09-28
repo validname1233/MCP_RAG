@@ -1,0 +1,10 @@
+{
+  "rerank": {
+    "provider": "none",
+    "model": "",
+    "candidates": 20
+  },
+  "search": {
+    "maxTopK": 20
+  }
+}
