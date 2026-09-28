@@ -17,7 +17,7 @@ import { serializeTable } from "../tabular.ts";
 
 export const xlsxParser: KbParser = {
   name: "xlsx",
-  formats: ["xlsx", "xlsm"],  // 老 .xls 一期不支持（明确报错引导转存 xlsx）
+  formats: ["xlsx", "xlsm", "xls"],  // .xls（BIFF8 及更早）SheetJS 同入口自动嗅探，2026-09-27 开放
 
   async parse({ filename, data }): Promise<ParsedDoc> {
     if (data.length === 0) throw new ParseError("文件是空的");
