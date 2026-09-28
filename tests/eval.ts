@@ -147,17 +147,20 @@ function bucket(items: CaseResult[]) {
   const latencies = items.map((r) => r.ms).sort((a, b) => a - b);
   const pct = (p: number) => (latencies.length === 0 ? 0 : latencies[Math.min(latencies.length - 1, Math.floor(latencies.length * p))]);
   const answered = items.filter((r) => r.gold.length > 0); // 有答案题（分母）
-  const perK: Record<number, { recall: number; precision: number }> = {};
+  const perK: Record<number, { recall: number; precision: number; snippet?: number }> = {};
   for (const k of kList) {
-    let recalled = 0, precSum = 0;
+    let recalled = 0, precSum = 0, snipHit = 0;
     for (const r of answered) {
       const inTopK = r.hits.filter((h) => h.rank <= k);
       if (inTopK.some((h) => r.gold.includes(h.doc))) recalled++;
       precSum += inTopK.filter((h) => r.gold.includes(h.doc)).length / Math.max(k, 1);
+      // snippet@K：top-K 内任一召回块含答案文本（两阶段检索的召回上限曲线）
+      if (r.answer_snippet !== undefined && r.answer_snippet !== "" && inTopK.some((h) => h.snippetHit)) snipHit++;
     }
     perK[k] = {
       recall: answered.length ? +(recalled / answered.length).toFixed(4) : 0,
       precision: answered.length ? +(precSum / answered.length).toFixed(4) : 0,
+      snippet: answered.length ? +(snipHit / answered.length).toFixed(4) : 0,
     };
   }
   const mrr = answered.length
