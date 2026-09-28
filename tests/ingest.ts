@@ -41,8 +41,7 @@ if (!embeddingEnabled) {
 // 本地可解析格式与 registry 对齐（pdf → [mineru, pdf-parse]，云端回退链，
 // 单篇约 30~60s 注意配额）。不支持扩展名的文件点名报出，绝不静默跳过——
 // 否则 gold 标注指向没入库的文档，eval 全成假 miss。
-const SUPPORTED = /\.(md|txt|log|csv|tsv|xlsx|xlsm|pdf)$/i;
-const allFiles = readdirSync(dataDirArg)
+const SUPPORTED = /\.(md|txt|log|csv|tsv|xlsx|xlsm|xls|pdf)$/i;const allFiles = readdirSync(dataDirArg)
   .map((f) => join(dataDirArg, f))
   .filter((f) => statSync(f).isFile());
 const files = allFiles.filter((f) => SUPPORTED.test(f));
@@ -52,8 +51,7 @@ if (skipped.length > 0) {
   console.warn(`[ingest] ⚠ 跳过 ${skipped.length} 个不支持的文件：${names.slice(0, 5).join("、")}${names.length > 5 ? " 等" : ""}`);
 }
 if (files.length === 0) {
-  console.error(`[ingest] ${dataDirArg} 下没有可入库的文档（支持 md/txt/log/csv/tsv/xlsx/xlsm/pdf）`);
-  process.exit(1);
+  console.error(`[ingest] ${dataDirArg} 下没有可入库的文档（支持 md/txt/log/csv/tsv/xlsx/xlsm/xls/pdf）`);  process.exit(1);
 }
 console.log(`[ingest] ${files.length} 个文档待入库 → scope ${TEST_SCOPE}`);
 
