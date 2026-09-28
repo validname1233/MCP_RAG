@@ -108,6 +108,7 @@ interface CaseResult extends GoldItem {
   docRecall: boolean;   // top-K 内命中任一 gold（按最大 K 算，各 K 切片在汇总时做）
   firstGoldRank: number | null;
   singleChunk: boolean; // gold 全部为单块文档（文档召回≈snippet 命中，无区分度）
+  firstSnipChunkRank: number | null; // 首个含 snippet 的块在【原始块级】结果里的位置（rerank 上限曲线用）
 }
 
 const results: CaseResult[] = [];
@@ -136,10 +137,15 @@ for (const g of gold) {
   }
   const goldSet = new Set(g.gold);
   const firstGold = ranked.find((r) => goldSet.has(r.doc)) ?? null;
+  // 原始块级位置：首个含 snippet 的块在未去重的召回序列里排第几（与文档排名区分——
+  // rerank 候选是块不是文档，上限曲线必须按块位算）
+  const firstSnipChunkRank = g.answer_snippet !== undefined && g.answer_snippet !== ""
+    ? (hits.findIndex((h) => h.text.includes(g.answer_snippet!)) + 1) || null
+    : null;
   // 单块判定：gold 文档全部在库里只切出一块（gold 含多块文档时按多块算）
   const singleChunk = g.gold.length > 0 && g.gold.every((d) => (chunksPerDoc.get(d) ?? 0) <= 1);
   results.push({ ...g, ms, hits: ranked,
-    docRecall: firstGold !== null, firstGoldRank: firstGold?.rank ?? null, singleChunk });
+    docRecall: firstGold !== null, firstGoldRank: firstGold?.rank ?? null, singleChunk, firstSnipChunkRank });
 }
 
 // ---- 汇总（全体 + 按 type 分桶）----
@@ -154,8 +160,8 @@ function bucket(items: CaseResult[]) {
       const inTopK = r.hits.filter((h) => h.rank <= k);
       if (inTopK.some((h) => r.gold.includes(h.doc))) recalled++;
       precSum += inTopK.filter((h) => r.gold.includes(h.doc)).length / Math.max(k, 1);
-      // snippet@K：top-K 内任一召回块含答案文本（两阶段检索的召回上限曲线）
-      if (r.answer_snippet !== undefined && r.answer_snippet !== "" && inTopK.some((h) => h.snippetHit)) snipHit++;
+      // snippet@K：首个含答案文本的块排进原始结果前 K（rerank 的召回上限）
+      if (r.firstSnipChunkRank !== null && r.firstSnipChunkRank <= k) snipHit++;
     }
     perK[k] = {
       recall: answered.length ? +(recalled / answered.length).toFixed(4) : 0,
