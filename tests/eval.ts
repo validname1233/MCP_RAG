@@ -15,8 +15,8 @@ import { join } from "node:path";
 const TEST_SCOPE = "kb:group:__ragtest__";
 const args = process.argv.slice(2);
 const goldFile = args.find((a) => a.startsWith("--gold="))?.slice(7) ?? "gold.json";
-// 通道：vector = 纯向量基线（rerank 强制关）；rerank = 两阶段（provider 由
-// RERANK_PROVIDER 选（zhipu|ali），窗口 KB_RERANK_CANDIDATES）。A/B 对照 K 曲线天花板。
+// 通道：vector = 纯向量基线；rerank = 两阶段（provider 由 RERANK_PROVIDER 选）；
+// fts = 纯关键词（FTS5 trigram + BM25，跳过 query embedding）。hybrid 待融合实现。
 const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 if (channel === "rerank") {
   process.env.RERANK_PROVIDER = process.env.RERANK_PROVIDER ?? "ali";
@@ -24,8 +24,11 @@ if (channel === "rerank") {
   process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
 } else if (channel === "vector") {
   process.env.RERANK_ENABLED = "0";
+} else if (channel === "fts") {
+  process.env.RERANK_ENABLED = "0";
+  process.env.KB_CHANNEL = "fts";
 } else {
-  console.error(`[eval] 未知通道 ${channel}（vector | rerank）`);
+  console.error(`[eval] 未知通道 ${channel}（vector | rerank | fts）`);
   process.exit(1);
 }
 const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);

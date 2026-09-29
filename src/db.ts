@@ -47,7 +47,31 @@ db.exec(`
     text     TEXT NOT NULL
   );
   CREATE INDEX IF NOT EXISTS idx_chunks_entry ON chunks(entry_id);
+  -- FTS5 关键词通道（src/fts.ts）：external-content 虚表——原文仍在 chunks，
+  -- 这里只存 trigram 倒排索引（三字滑窗对中文子串生效）。触发器自动同步，
+  -- chunks 的三处写入点（worker/ingest/web）零改动。
+  CREATE VIRTUAL TABLE IF NOT EXISTS chunks_fts USING fts5(
+    text, content='chunks', content_rowid='id', tokenize='trigram'
+  );
+  CREATE TRIGGER IF NOT EXISTS chunks_ai AFTER INSERT ON chunks BEGIN
+    INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+  END;
+  CREATE TRIGGER IF NOT EXISTS chunks_ad AFTER DELETE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+  END;
+  CREATE TRIGGER IF NOT EXISTS chunks_au AFTER UPDATE ON chunks BEGIN
+    INSERT INTO chunks_fts(chunks_fts, rowid, text) VALUES ('delete', old.id, old.text);
+    INSERT INTO chunks_fts(rowid, text) VALUES (new.id, new.text);
+  END;
 `);
+
+// 存量库回填：external-content 虚表建好后是空的（触发器只管增量），一条 rebuild
+// 命令按 chunks 表重建索引。幂等——已同步的库 rebuild 是无变化的全量重扫。
+try {
+  db.exec("INSERT INTO chunks_fts(chunks_fts) VALUES ('rebuild')");
+} catch (error) {
+  console.error(`[db] chunks_fts 回填失败（关键词通道将不可用，向量通道不受影响）：${error instanceof Error ? error.message : error}`);
+}
 
 // vectors 桩表已退役（2026-09-18 迁移至 LanceDB，data/vectors.lance/ 目录，
 // 见 src/vector-store.ts）。新库不再建该表；旧库由 scripts/migrate-vectors-to-lance.ts DROP。

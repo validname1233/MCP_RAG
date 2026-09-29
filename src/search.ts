@@ -12,6 +12,7 @@ import { embedBatch } from "./embed.ts";
 import { vectorStore } from "./vector-store.ts";
 import { rerank, rerankEnabled } from "./rerank.ts";
 import { config } from "./config.ts";
+import { ftsSearch } from "./fts.ts";
 
 export interface SearchHit {
   entryId: number;
@@ -27,14 +28,20 @@ const SCOPE_RE = /^kb:(group|c2c):[A-Za-z0-9_-]+$/;
 export async function kbSearch(scope: string, query: string, topK: number): Promise<SearchHit[]> {
   if (!SCOPE_RE.test(scope)) throw new Error(`scope 格式不合法（收到 "${scope}"）`);
 
-  // 1. 查询向量（单条走批量入口，语义同入库侧——同一模型同一维度保证向量空间一致）
-  const { vectors: [queryVec], fake } = await embedBatch([query]);
-  if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");
-
-  // 2. 向量召回：rerank 启用时扩窗取候选（两阶段：先粗排够多的候选，精排再取 topK）。
-  //    窗口与上限都来自 config（config.json / 环境变量，见 src/config.ts）
+  // 1+2. 召回：按通道分路。vector/hybrid 走向量（hybrid 尚未实现，当前等同
+  // vector + rerank）；fts 纯关键词——跳过 query embedding（省一次 API 往返
+  // ~200ms），BM25 直接拿候选。两路返回同款 (entryId, idx, score) 形状。
+  const maxTopK = config.search.maxTopK;
   const candidates = rerankEnabled ? config.rerank.candidates : topK;
-  const hits = await vectorStore.search(scope, queryVec, Math.max(1, Math.min(Math.max(topK, candidates), config.search.maxTopK)));
+  const wantN = Math.max(1, Math.min(Math.max(topK, candidates), maxTopK));
+  let hits: Array<{ entryId: number; idx: number; score: number }>;
+  if (config.search.channel === "fts") {
+    hits = ftsSearch(scope, query, wantN);
+  } else {
+    const { vectors: [queryVec], fake } = await embedBatch([query]);
+    if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");
+    hits = await vectorStore.search(scope, queryVec, wantN);
+  }
   if (hits.length === 0) return [];
 
   // 3. 回 SQLite 取原文（复合键 (entry_id, idx) 批量取，单一数据源）

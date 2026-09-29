@@ -15,13 +15,16 @@ export interface RerankProviderName {
 
 export interface AppConfig {
   rerank: RerankProviderName;
-  search: { maxTopK: number };  // kbSearch 的 topK 硬上限（防误传大 K）
+  search: {
+    channel: "vector" | "fts" | "hybrid";  // 检索通道：纯向量 | 纯关键词 | 融合（hybrid 待实现）
+    maxTopK: number;  // kbSearch 的 topK 硬上限（防误传大 K）
+  };
 }
 
 // config.json 形状（宽松解析：缺字段用默认，多余字段忽略——升级不炸旧配置）
 interface ConfigFile {
   rerank?: { provider?: string; model?: string; candidates?: number };
-  search?: { maxTopK?: number };
+  search?: { channel?: string; maxTopK?: number };
 }
 
 const ROOT = join(import.meta.dirname, "..");
@@ -41,6 +44,7 @@ const num = (v: string | undefined, d: number) => {
 };
 
 const provider = (env.RERANK_PROVIDER ?? file.rerank?.provider ?? "none") as AppConfig["rerank"]["provider"];
+const channel = (env.KB_CHANNEL ?? file.search?.channel ?? "vector") as AppConfig["search"]["channel"];
 
 export const config: AppConfig = {
   rerank: {
@@ -49,6 +53,7 @@ export const config: AppConfig = {
     candidates: num(env.KB_RERANK_CANDIDATES, file.rerank?.candidates ?? 20),
   },
   search: {
+    channel: ["vector", "fts", "hybrid"].includes(channel) ? channel : "vector",
     maxTopK: num(env.KB_MAX_TOPK, file.search?.maxTopK ?? 20),
   },
 };
