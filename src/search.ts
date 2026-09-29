@@ -28,15 +28,41 @@ const SCOPE_RE = /^kb:(group|c2c):[A-Za-z0-9_-]+$/;
 export async function kbSearch(scope: string, query: string, topK: number): Promise<SearchHit[]> {
   if (!SCOPE_RE.test(scope)) throw new Error(`scope 格式不合法（收到 "${scope}"）`);
 
-  // 1+2. 召回：按通道分路。vector/hybrid 走向量（hybrid 尚未实现，当前等同
-  // vector + rerank）；fts 纯关键词——跳过 query embedding（省一次 API 往返
-  // ~200ms），BM25 直接拿候选。两路返回同款 (entryId, idx, score) 形状。
+  // 1+2. 召回：按通道分路。vector = 纯向量；fts = 纯关键词（跳过 query
+  // embedding，省一次 API 往返 ~200ms）；hybrid = 双路召回 + RRF 融合——
+  // 向量管语义、FTS 管字面（专名/组合字符串），两路 miss 集合近不重叠
+  //（§4.6 实测），融合窗口再交由可选 rerank 精排。两路返回同款形状。
   const maxTopK = config.search.maxTopK;
   const candidates = rerankEnabled ? config.rerank.candidates : topK;
   const wantN = Math.max(1, Math.min(Math.max(topK, candidates), maxTopK));
   let hits: Array<{ entryId: number; idx: number; score: number }>;
-  if (config.search.channel === "fts") {
+  const channel = config.search.channel;
+  if (channel === "fts") {
     hits = ftsSearch(scope, query, wantN);
+  } else if (channel === "hybrid") {
+    // RRF（Reciprocal Rank Fusion）：score = Σ 1/(k + rank)，k=60 是无单位排序
+    // 融合的经典常数（原论文默认，兼顾"两路都认可"与"单路强信号"）。分数只表达
+    // 融合次序，语义上不可比（向量 L2 与 BM25 量纲不同，RRF 恰好绕开这个问题）。
+    const RRF_K = 60;
+    const [vecHits, ftsHits] = await Promise.all([
+      embedBatch([query]).then(({ vectors: [v], fake }) => {
+        if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");
+        return vectorStore.search(scope, v, wantN);
+      }),
+      Promise.resolve(ftsSearch(scope, query, wantN)),
+    ]);
+    const fused = new Map<string, { entryId: number; idx: number; score: number }>();
+    const add = (list: typeof vecHits, weight: number) => {
+      list.forEach((h, i) => {
+        const key = `${h.entryId}:${h.idx}`;
+        const prev = fused.get(key) ?? { entryId: h.entryId, idx: h.idx, score: 0 };
+        prev.score += weight / (RRF_K + i + 1);
+        fused.set(key, prev);
+      });
+    };
+    add(vecHits, 1);
+    add(ftsHits, 1);
+    hits = [...fused.values()].sort((a, b) => b.score - a.score).slice(0, wantN);
   } else {
     const { vectors: [queryVec], fake } = await embedBatch([query]);
     if (fake) throw new Error("embedding 未配置（EMBEDDING_API_KEY 为空），无法做语义检索");

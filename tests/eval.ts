@@ -15,20 +15,26 @@ import { join } from "node:path";
 const TEST_SCOPE = "kb:group:__ragtest__";
 const args = process.argv.slice(2);
 const goldFile = args.find((a) => a.startsWith("--gold="))?.slice(7) ?? "gold.json";
-// 通道：vector = 纯向量基线；rerank = 两阶段（provider 由 RERANK_PROVIDER 选）；
-// fts = 纯关键词（FTS5 trigram + BM25，跳过 query embedding）。hybrid 待融合实现。
+// 通道：vector = 纯向量；rerank = 向量两阶段（provider 由 RERANK_PROVIDER 选）；
+// fts = 纯关键词；hybrid = 双路 RRF 融合（无 rerank）；hybrid-rerank = 融合 + 精排。
 const channel = args.find((a) => a.startsWith("--channel="))?.slice(10) ?? "vector";
 if (channel === "rerank") {
   process.env.RERANK_PROVIDER = process.env.RERANK_PROVIDER ?? "ali";
   process.env.KB_RERANK_CANDIDATES = process.env.KB_RERANK_CANDIDATES ?? "20";
   process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
-} else if (channel === "vector") {
+} else if (channel === "vector" || channel === "fts") {
   process.env.RERANK_ENABLED = "0";
-} else if (channel === "fts") {
-  process.env.RERANK_ENABLED = "0";
-  process.env.KB_CHANNEL = "fts";
+  if (channel === "fts") process.env.KB_CHANNEL = "fts";
+} else if (channel === "hybrid" || channel === "hybrid-rerank") {
+  process.env.KB_CHANNEL = "hybrid";
+  process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
+  if (channel === "hybrid") process.env.RERANK_ENABLED = "0";
+  else {
+    process.env.RERANK_PROVIDER = process.env.RERANK_PROVIDER ?? "ali";
+    process.env.KB_RERANK_CANDIDATES = process.env.KB_RERANK_CANDIDATES ?? "20";
+  }
 } else {
-  console.error(`[eval] 未知通道 ${channel}（vector | rerank | fts）`);
+  console.error(`[eval] 未知通道 ${channel}（vector | rerank | fts | hybrid | hybrid-rerank）`);
   process.exit(1);
 }
 const kList = (args.find((a) => a.startsWith("--k="))?.slice(4) ?? "1,3,5").split(",").map(Number);
