@@ -13,29 +13,30 @@ export interface FtsHit {
   score: number; // BM25 分数，越小越相关（FTS5 的 rank 惯例，与 L2 同向）
 }
 
-// query 消毒 + 组装：FTS5 语法里 " AND OR NOT ( ) * ^ : 是操作符，用户 query
-// 原样拼接会语法错或语义劫持。做法：按空白分段，每段转义后独立包成短语
-//（trigram 短语 = 子串匹配），段间 AND 连接——"多关键词各自命中"而非
-// "整句连续出现"（用户 query 里的连接词/语序不应导致失配；冒烟实测抓过这个坑）。
-function buildMatch(query: string): string {
-  return query.trim().split(/\s+/)
-    .map(seg => `"${seg.replace(/"/g, '""')}"`)
-    .join(" AND ");
-}
-
-// 有效段：≥3 字才有 trigram 可匹配（太短的段进 MATCH 会拖垮查询或恒空）
-function usableSegments(query: string): string[] {
-  return query.trim().split(/\s+/).filter(seg => seg.replace(/\s+/g, "").length >= 3);
+// 中文 query 没有空白分词——按段短语匹配会让整句变成"连续子串匹配"，语义
+// 改写过的 query（我们的 gold 正是如此）几乎必然空手（eval 全零的根因）。
+// 无分词器的标准做法：query 提取 trigram 集合做 OR 匹配，BM25 把"覆盖 query
+// 更多 trigram"的块排前——字面相关性的排序语义天然成立。多段（含空格的
+// query）trigram 合并进同一集合（AND 语义由 BM25 排序近似承担）。
+function extractTrigrams(query: string): string[] {
+  const segs = query.trim().split(/\s+/).filter(s => s.length >= 3);
+  const grams = new Set<string>();
+  for (const seg of segs) {
+    for (let i = 0; i + 3 <= seg.length; i += 3) {  // 不重叠滑窗（步长 3），省查询 token
+      grams.add(seg.slice(i, i + 3));
+    }
+  }
+  return [...grams];
 }
 
 export function ftsSearch(scope: string, query: string, topK: number): FtsHit[] {
   const trimmed = query.trim();
   if (trimmed === "") return [];
 
-  // 所有段都 <3 字：没有 trigram 可用——退化到 LIKE 包含（全表扫，量小可接受），
-  // 保底"字面在不在"的语义
-  const segs = usableSegments(trimmed);
-  if (segs.length === 0) {
+  // 没有任何可用的 trigram（全是 <3 字的段）：退化到 LIKE 包含（全表扫，
+  // 量小可接受），保底"字面在不在"的语义
+  const grams = extractTrigrams(trimmed);
+  if (grams.length === 0) {
     const rows = db.prepare(
       `SELECT c.id, c.entry_id, c.idx FROM chunks c JOIN entries e ON e.id = c.entry_id
        WHERE e.scope = ? AND e.status = 'searchable' AND c.text LIKE ?
@@ -45,6 +46,8 @@ export function ftsSearch(scope: string, query: string, topK: number): FtsHit[] 
   }
 
   try {
+    // trigram 间的双引号转义（正常输入不会有，防御 FTS5 语法注入）
+    const match = grams.map(g => `"${g.replace(/"/g, '""')}"`).join(" OR ");
     const rows = db.prepare(
       `SELECT c.entry_id, c.idx, fts.rank
        FROM chunks_fts fts
@@ -53,7 +56,7 @@ export function ftsSearch(scope: string, query: string, topK: number): FtsHit[] 
        WHERE chunks_fts MATCH ? AND e.scope = ? AND e.status = 'searchable'
        ORDER BY fts.rank
        LIMIT ?`,
-    ).all(segs.map(seg => `"${seg.replace(/"/g, '""')}"`).join(" AND "), scope, Math.max(1, topK)) as Array<{ entry_id: number; idx: number; rank: number }>;
+    ).all(match, scope, Math.max(1, topK)) as Array<{ entry_id: number; idx: number; rank: number }>;
     return rows.map((r) => ({ entryId: r.entry_id, idx: r.idx, score: r.rank }));
   } catch (error) {
     // MATCH 语法极端 case 兜底：宁可空结果不让关键词通道炸检索
