@@ -22,9 +22,12 @@ if (channel === "rerank") {
   process.env.RERANK_PROVIDER = process.env.RERANK_PROVIDER ?? "ali";
   process.env.KB_RERANK_CANDIDATES = process.env.KB_RERANK_CANDIDATES ?? "20";
   process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
+  process.env.KB_CHANNEL = "vector";  // rerank 通道 = 向量召回+精排（§4.5 口径）；防 config.json 污染
 } else if (channel === "vector" || channel === "fts") {
   process.env.RERANK_ENABLED = "0";
-  if (channel === "fts") process.env.KB_CHANNEL = "fts";
+  // 显式钉死通道：config.json（生产部署产物）可能写 channel=hybrid，不覆盖会
+  // 静默污染基线——"vector 基线"变"纯 hybrid"，历史数字不可复现
+  process.env.KB_CHANNEL = channel === "vector" ? "vector" : "fts";
 } else if (channel === "hybrid" || channel === "hybrid-rerank") {
   process.env.KB_CHANNEL = "hybrid";
   process.env.KB_MAX_TOPK = process.env.KB_MAX_TOPK ?? "20";
