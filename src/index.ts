@@ -1,6 +1,6 @@
 // src/index.ts —— 组装根：配置 + HTTP server + 路由分发（MCP / Web / 404）。
 //
-// 路径约定：Higress 网关把 http://zyh.kyson.asia:28080/rag 原样透传到本服务，
+// 路径约定：Higress 网关把 http://your-gateway.example.com:28080/rag 原样透传到本服务，
 // 所以每个路由都同时接受裸路径（本地直连）和 /rag 前缀（经网关）。
 
 import { createServer } from "node:http";
@@ -14,7 +14,7 @@ import "./db.ts";
 
 const PORT = Number(env.KB_PORT ?? 3001);
 const BEARER_KEY = env.KB_BEARER_KEY ?? "";
-const PUBLIC_URL = (env.KB_PUBLIC_URL ?? "http://zyh.kyson.asia:28080/rag").replace(/\/+$/, "");
+const PUBLIC_URL = (env.KB_PUBLIC_URL ?? "http://your-gateway.example.com:28080/rag").replace(/\/+$/, "");
 const MCP_PATHS = new Set(
   (env.KB_MCP_PATH ?? "/mcp").split(",").map((s) => s.trim()).filter(Boolean),
 );
